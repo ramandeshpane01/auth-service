@@ -81,3 +81,6 @@ docker-compose.override.yml
 k8s/secrets.yaml
 k8s/*secret*.yaml
 
+
+src/main/resources/hibernate.cfg.xml
+
