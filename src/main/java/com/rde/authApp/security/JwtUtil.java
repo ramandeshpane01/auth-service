@@ -25,17 +25,18 @@ public class JwtUtil {
         this.key = Keys.hmacShaKeyFor(secret.getBytes());
     }
 
-    public String generateToken(String email) {
+    public String generateToken(Long userId) {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + jwtExpirationMs);
 
         return Jwts.builder()
-                .setSubject(email)
+                .setSubject(String.valueOf(userId)) // userId as subject
                 .setIssuedAt(now)
                 .setExpiration(expiry)
                 .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
     }
+
 
     public String extractEmail(String token) {
         return parseClaims(token).getSubject();
@@ -56,5 +57,26 @@ public class JwtUtil {
                 .build()
                 .parseClaimsJws(token)
                 .getBody();
+    }
+
+
+    public Long extractUserIdFromExpiredToken(String token) {
+        try {
+
+            return extractUserId(token);
+        } catch (ExpiredJwtException e) {
+
+            return Long.parseLong(e.getClaims().getSubject());
+        }
+    }
+
+    public Long extractUserId(String token) {
+        Claims claims = Jwts.parserBuilder()
+                .setSigningKey(key)
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+
+        return Long.parseLong(claims.getSubject());
     }
 }

@@ -1,6 +1,7 @@
 package com.rde.authApp.config;
 
 import com.rde.authApp.security.JwtFilter;
+import com.rde.authApp.security.RateLimitFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -14,9 +15,12 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtFilter jwtFilter;
+    private final RateLimitFilter rateLimitFilter;
 
-    public SecurityConfig(JwtFilter jwtFilter) {
+    public SecurityConfig(JwtFilter jwtFilter,
+                          RateLimitFilter rateLimitFilter) {
         this.jwtFilter = jwtFilter;
+        this.rateLimitFilter = rateLimitFilter;
     }
 
     @Bean
@@ -24,14 +28,32 @@ public class SecurityConfig {
 
         http
                 .csrf(csrf -> csrf.disable())
-                .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .sessionManagement(sess ->
+                        sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                )
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/auth/**").permitAll()
+
+                        .requestMatchers(
+                                "/",
+                                "/index.html",
+                                "/auth/**",
+                                "/favicon.ico",
+                                "/**/*.html",
+                                "/**/*.css",
+                                "/**/*.js"
+                        ).permitAll()
+
+
+                        .requestMatchers("/static/**").permitAll()
+
+
                         .anyRequest().authenticated()
                 )
-                .httpBasic(basic -> basic.disable())     // FIXED: variable renamed
-                .formLogin(form -> form.disable());      // FIXED: no shadowing
+                .httpBasic(basic -> basic.disable())
+                .formLogin(form -> form.disable());
 
+
+        http.addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class);
         http.addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

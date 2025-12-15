@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Auth Service Test UI</title>
+    <style>
+        body {
+            font-family: Arial;
+            margin: 40px;
+            background: #f5f5f5;
+        }
+        input, button {
+            padding: 8px;
+            margin: 5px;
+            width: 300px;
+        }
+        button {
+            cursor: pointer;
+        }
+        pre {
+            background: #222;
+            color: #0f0;
+            padding: 15px;
+            max-width: 800px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+
+<h2>🔐 Auth Service Test UI</h2>
+
+<h3>Register</h3>
+<input id="regEmail" placeholder="Email" />
+<input id="regPassword" placeholder="Password" type="password" />
+<button onclick="register()">Register</button>
+
+<h3>Login</h3>
+<input id="loginEmail" placeholder="Email" />
+<input id="loginPassword" placeholder="Password" type="password" />
+<button onclick="login()">Login</button>
+
+<h3>Protected API</h3>
+<button onclick="callProtected()">Call /test</button>
+
+<h3>Logout</h3>
+<button onclick="logout()">Logout</button>
+
+<h3>Console</h3>
+<pre id="output"></pre>
+
+<script>
+    const deviceId = localStorage.getItem("deviceId") ||
+        crypto.randomUUID();
+
+    localStorage.setItem("deviceId", deviceId);
+
+    function log(msg) {
+        document.getElementById("output").textContent +=
+            msg + "\n\n";
+    }
+
+    function saveTokens(data) {
+        localStorage.setItem("accessToken", data.accessToken);
+        localStorage.setItem("refreshToken", data.refreshToken);
+    }
+
+    async function register() {
+        const res = await fetch("/auth/register", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({
+                email: regEmail.value,
+                password: regPassword.value
+            })
+        });
+
+        log("REGISTER: " + await res.text());
+    }
+
+    async function login() {
+        const res = await fetch("/auth/login", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({
+                email: loginEmail.value,
+                password: loginPassword.value,
+                deviceId: deviceId
+            })
+        });
+
+        const data = await res.json();
+        saveTokens(data);
+        log("LOGIN SUCCESS\n" + JSON.stringify(data, null, 2));
+    }
+
+    async function callProtected() {
+        let res = await fetch("/api/hello", {
+            headers: {
+                "Authorization":
+                    "Bearer " + localStorage.getItem("accessToken")
+            }
+        });
+
+        if (res.status === 401) {
+            log("ACCESS TOKEN EXPIRED → REFRESHING...");
+
+            const refreshed = await refresh();
+
+            if (!refreshed) {
+                log("REFRESH FAILED → RELOGIN REQUIRED");
+                return;
+            }
+
+            res = await fetch("/api/hello", {
+                headers: {
+                    "Authorization":
+                        "Bearer " + localStorage.getItem("accessToken")
+                }
+            });
+        }
+
+        log("PROTECTED API RESPONSE:\n" + await res.text());
+    }
+
+    async function refresh() {
+    const res = await fetch("/auth/refresh", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+            accessToken: localStorage.getItem("accessToken"),
+            refreshToken: localStorage.getItem("refreshToken"),
+            deviceId: deviceId
+        })
+    });
+
+    if (!res.ok) return false;
+
+    const data = await res.json();
+    saveTokens(data);
+
+    log("REFRESH SUCCESS\n" + JSON.stringify(data, null, 2));
+    return true;
+}
+
+    async function logout() {
+        await fetch("/auth/logout", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({
+                refreshToken: localStorage.getItem("refreshToken")
+            })
+        });
+
+        localStorage.clear();
+        log("LOGOUT SUCCESS");
+    }
+</script>
+
+</body>
+</html>

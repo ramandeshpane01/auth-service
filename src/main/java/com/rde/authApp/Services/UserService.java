@@ -9,7 +9,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.util.Optional;
 
 @Service
 public class UserService {
@@ -32,7 +31,7 @@ public class UserService {
         repo.save(user);
     }
 
-    public String login(LoginRequest req) {
+    public User authenticate(LoginRequest req) {
 
         User user = repo.findByEmail(req.getEmail())
                 .orElseThrow(() -> new RuntimeException("Invalid credentials"));
@@ -41,7 +40,7 @@ public class UserService {
             throw new RuntimeException("Invalid credentials");
         }
 
-        return jwtUtil.generateToken(user.getEmail());
+        return user;
     }
 }
 
